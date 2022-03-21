@@ -32,48 +32,48 @@ photon scattered in the object or not, and the third indicatess whether
 the photno passed thorugh the collimator holes, penetrated the septa,
 scattered in the septa, or is the result of a collimator xray.
 
--runspectsims.py: script to run all the simulations. The parameters
+- runspectsims.py: script to run all the simulations. The parameters
 are the name of the config file (See below) and the start and end seed
 numbers. Normally you run a number of simulations for each object
 and average them. This lets you do that. The noise in the resulting
 projections
 
--config.par: parameter file
+- config.par: parameter file
 
--tc99m_ewins.win: file with high and low limits for energy windows used
+- tc99m_ewins.win: file with high and low limits for energy windows used
 for projections. One window is in each file.
 
--voxphan.smc: simind paramter file for the simulation. Can be use to
+- voxphan.smc: simind paramter file for the simulation. Can be use to
 chane pameters that are not set by runspectsims.py (from config.par). This
 incldues things like the energy resolution, etc. Don't change it unless
 you really know what you are doing. This is changed using the simind
 program change.
 
--avg_done_bis.py: averages spectrum files created by the simulation
+- avg_done_bis.py: averages spectrum files created by the simulation
 (end in .bis).
 
--avg_done_sims.py: averages images created by the various runs in the
+- avg_done_sims.py: averages images created by the various runs in the
 simuilation
 
--rm_logs.py : script that removes all .log files that don't have a
+- rm_logs.py : script that removes all .log files that don't have a
 matching .res file. Can be useful for cleaning up before restarting a
 simulation that was interrupted.
 
--runcmd.py : python command for running commands in the background.
+- runcmd.py : python command for running commands in the background.
 
--dens.im: sample ncat input density image. Size of density and source
+- dens.im: sample ncat input density image. Size of density and source
 images should be the same.
 
--liver.im: sample input source image for one object.
+- liver.im: sample input source image for one object.
 
--lungs.im
+- lungs.im
 
--tumor1.im
+- tumor1.im
 
--tumor2.im
+- tumor2.im
 
--tumor3.im
+- tumor3.im
 
--tumor4.im
+- tumor4.im
 
--tumor5.im
+- tumor5.im
