@@ -85,7 +85,7 @@ def runspectsims(configfile, startseed, endseed, maxproc):
         smc_dir = smc_dir + ('/' if smc_dir[-1] != '/' else '')
         collimator=parms['collimator']
         NN = int(parms['nn'])
-        pixsize=parms['pixsize']
+        pixsize=float(parms['pixsize'])
         photon_energy=parms['photon_energy']
         isdfile=parms['isdfile']
         densmap=parms['densmap']
@@ -98,52 +98,70 @@ def runspectsims(configfile, startseed, endseed, maxproc):
         nang=parms['nang']
     except configparser.Error as e:
         print(f'Error parsing {configfile}: {e}')
-        exit(0)
+        exit(1)
 
     if not exists(densmap+'.im'):
         print(f'density map {densmap}.im does not exist')
-        exit(0)
+        exit(1)
+    if not exists(ewin_file+'.win'):
+        print(f'energy window file {ewin_file+".win"} does not exist')
+        exit(1)
     dens=npi.ArrayFromIm(f'{densmap}.im')
-    if dens.min() <1 | dens.max() > 5000:
-        print('density map voxels must be > 0 and <= 5')
-        exit(0)
+    print(dens.min(),dens.max())
+    if dens.min() < 0 or dens.max() > 5000:
+        print('density map voxels must be >= 0 and <= 5')
+        exit(1)
     if not exists(f'{densmap}.dmi'):
-        dns.astype(np.uint16).tofile(f'{densmap}.dmi')
+        dens.astype(np.uint16).tofile(f'{densmap}.dmi')
     if getsize(f'{densmap}.dmi') != dens.flatten().shape[0]*2:
         print(f'{densmap}.dmi has unexpected size')
-        exit(0)
+        exit(1)
     os.environ["SMC_DIR"] = smc_dir
     print(simind)
     print(os.environ["SMC_DIR"])
     objsums,maxsum,objshape=get_object_sums(objs)
     if objshape != dens.shape:
         print(f'{densmap}.im and objects must be the same shape')
-        exit(0)
+        exit(1)
     print(objsums)
     print(maxsum)
     # simulation flags
-    # 1: t screen results
+    # FA:1: no screen output
+    # FA:8: don't use random seed
     # options
     # FD: density map name
     # FS: source map name
     # PX: pixel size of source map
     # SD: seed
     # FI: isotope file
+    # RR: scip random numbers
     # NN: scale factor for photons in voxelized phantoms.
     # Index values
     # 01: energy: negative means to use the isotope file
-    # 05: phantom half-lengthj
+    # 02: source half-length
+    # 05: phantom half-length
     # 20:  Upper energy threshold
     # 21:  lower energy threshold
+    # 28: voxel size in output image
+    # 31: voxel size in density map
     # 84: score routine: 41-muliplewin
+    # 76: matrix size image I
+    # 77: matrix size image J
+    # 78: matrix size density map I
+    # 79: matrix size source map I
+    # 81: matrix size density map J
+    # 82: matrix size source map J
+
     zdim,ydim,xdim=objshape
+    z_halflen=pixsize*zdim/2.0
     for seed in range(startseed, endseed):
         for obj in objs:
             print(f'running {prefix} {obj} {seed} nn={NN}')
             opts = (
                     f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}/SD:{seed}/FI:{isdfile}/01:{photon_energy}/"
-                    f"20:300/21:100/NN:{NN}/TR:5/31:{pixsize}/29:{nang}/84:41/CA:{score41_val}/34:{zdim}"
-                    f"/76:{xdim}/77:{zdim}/78:{xdim}/:79:{xdim}/81:{ydim}/82:{ydim}"
+                    f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
+                    f"20:{e_high}/21:{e_low}/NN:{NN}/TR:5/31:{pixsize}/29:{nang}/84:41/CA:{score41_val}/34:{zdim}"
+                    f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}"
             )
             opts += '/FA:15' if seed != startseed else '/TR:15'
             opts += f"/84:41/fw:{ewin_file}"
