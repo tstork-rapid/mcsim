@@ -1,0 +1,7 @@
+rm -f *.res *.log
+rm  -f test_*.im
+rm -f test_*.{h,i}ct
+rm -f test_*.cor
+rm -f test_*.bis
+rm -f *.dmi *.smi
+rm -f ranmar*.num
