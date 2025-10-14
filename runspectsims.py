@@ -1,16 +1,59 @@
 #! /usr/bin/env python3
 from runcmd import runcmd, waitall
 import os
+import re
 from time import sleep
-from sys import argv, exit
+from sys import exit
 from os.path import exists, getsize
-from math import ceil
 from multiprocessing import cpu_count
 import configparser
 import click
-from os.path import exists
 import numpy as np
 import NumpyIm as npi
+
+
+def get_parms(parfile, int_parms=[], float_parms=[], str_parms=[], list_parms=[]):
+    config = configparser.ConfigParser()
+    config.read(parfile)
+    print(config.sections())
+    configparms = config["parms"]
+    parms = dict()
+    all_parms = int_parms + float_parms + str_parms + list_parms
+    assert len(all_parms) == len(set(all_parms)), (
+        "there must be overlapping names in some parameter classes"
+    )
+    try:
+        for p in int_parms:
+            parms[p] = int(configparms[p])
+        for p in str_parms:
+            parms[p] = configparms[p]
+        for p in float_parms:
+            parms[p] = float(configparms[p])
+        for p in list_parms:
+            parms[p] = re.split(r"[, ]", configparms[p])
+    except configparser.Error as e:
+        print(f"Error parsing {parfile}: {e}")
+        exit(1)
+    if "smc_dir" in parms:
+        # smc_dir must end with a /
+        parms["smc_dir"] += "" if parms["smc_dir"].endswith("/") else "/"
+    isd_files = get_files(config, "isd_files", parms["radionuclides"], ".isd")
+    return parms, isd_files
+
+
+def get_files(config, section, rns, ext):
+    if section not in config:
+        raise ValueError(f"Section {section} was not found in the configuration file")
+    if not ext.startswith("."):
+        ext = "." + ext
+    configparms = config[section]
+    files = dict()
+    for rn in rns:
+        fn = configparms[rn] if rn in configparms else f"{rn}"
+        if not fn.endswith(ext):
+            fn = fn + ext
+        files[rn] = fn
+    return files
 
 
 def get_object_sums(objs):
@@ -70,40 +113,43 @@ def get_object_sums(objs):
 @click.argument("endseed", type=int, required=True)
 def runspectsims(configfile, startseed, endseed, maxproc):
     ncpus = cpu_count()
-    print(configfile)
-    with open(configfile, "r") as f:
-        pars = "[parms]\n" + f.read()
-    config = configparser.ConfigParser()
-    config.read_string(pars)
-    print(config.sections())
-    parms = config["parms"]
     if maxproc is None:
         maxproc = ncpus
     else:
         maxproc = min(maxproc, ncpus)
     print(f"run up to {maxproc} jobs at a time")
 
-    try:
-        simind = parms["simind"]
-        smc_dir = parms["smc_dir"]
-        smc_dir = smc_dir + ("/" if smc_dir[-1] != "/" else "")
-        collimator = parms["collimator"]
-        NN = int(parms["nn"])
-        pixsize = float(parms["pixsize"])
-        photon_energy = parms["photon_energy"]
-        isdfile = parms["isdfile"]
-        densmap = parms["densmap"]
-        objs = parms["objects"].split()
-        e_low = parms["e_low"]
-        e_high = parms["e_high"]
-        prefix = parms["prefix"]
-        score41_val = parms["score41_val"]
-        ewin_file = parms["ewin_file"]
-        nang = parms["nang"]
-    except configparser.Error as e:
-        print(f"Error parsing {configfile}: {e}")
-        exit(1)
-
+    # these are the parameters that are expected to be in the 'parms' section
+    # of the configfile
+    int_parms = ["NN", "score41_val", "nang"]
+    str_parms = [
+        "simind",
+        "smc_file",
+        "ewin_file",
+        "smc_dir",
+        "collimator",
+        "densmap",
+        "prefix",
+    ]
+    float_parms = [
+        "pixsize",
+        "photon_energy",
+        "e_low",
+        "e_high",
+    ]
+    list_parms = [
+        "objects",
+        "radionuclides",
+    ]
+    parms, isd_files = get_parms(
+        configfile,
+        int_parms=int_parms,
+        float_parms=float_parms,
+        str_parms=str_parms,
+        list_parms=list_parms,
+    )
+    densmap = parms["densmap"]
+    ewin_file = parms["ewin_file"]
     if not exists(densmap + ".im"):
         print(f"density map {densmap}.im does not exist")
         exit(1)
@@ -120,9 +166,11 @@ def runspectsims(configfile, startseed, endseed, maxproc):
     if getsize(f"{densmap}.dmi") != dens.flatten().shape[0] * 2:
         print(f"{densmap}.dmi has unexpected size")
         exit(1)
-    os.environ["SMC_DIR"] = smc_dir
-    print(simind)
+    os.environ["SMC_DIR"] = parms["smc_dir"]
+    simind = parms["simind"]
     print(os.environ["SMC_DIR"])
+    print(f"running {simind} using SMC_DIR={parms['smc_dir']}")
+    objs = parms["objects"]
     objsums, maxsum, objshape = get_object_sums(objs)
     if objshape != dens.shape:
         print(f"{densmap}.im and objects must be the same shape")
@@ -138,7 +186,7 @@ def runspectsims(configfile, startseed, endseed, maxproc):
     # PX: pixel size of source map
     # SD: seed
     # FI: isotope file
-    # RR: scip random numbers
+    # RR: skip random numbers
     # NN: scale factor for photons in voxelized phantoms.
     # Index values
     # 01: energy: negative means to use the isotope file
@@ -156,29 +204,38 @@ def runspectsims(configfile, startseed, endseed, maxproc):
     # 81: matrix size density map J
     # 82: matrix size source map J
 
+    pixsize = parms["pixsize"]
     zdim, ydim, xdim = objshape
     z_halflen = pixsize * zdim / 2.0
+    prefix = parms["prefix"]
+    NN = parms["NN"]
     for seed in range(startseed, endseed):
         for obj in objs:
-            print(f"running {prefix} {obj} {seed} nn={NN}")
-            opts = (
-                f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}/SD:{seed}/FI:{isdfile}/01:{photon_energy}/"
-                f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
-                f"20:{e_high}/21:{e_low}/NN:{NN}/TR:5/31:{pixsize}/29:{nang}/84:41/CA:{score41_val}/34:{zdim}"
-                f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}"
-            )
-            opts += "/FA:15" if seed != startseed else "/TR:15"
-            opts += f"/84:41/fw:{ewin_file}"
-            base = f"{prefix}_{obj}_{seed}"
-            cmd = f"{simind} voxphan{opts}/CC:{collimator} {base} >& {base}.log"
-            if not exists(f"{base}.log") and not exists(f"{base}.res"):
-                print(cmd)
-                with open(f"{base}.log", "w") as fp:
-                    fp.write("\n")
-                runcmd(cmd, maxruns=maxproc)
-                sleep(1)
-            else:
-                print("skipping", prefix, obj, seed)
+            for rn in parms["radionuclides"]:
+                isd_file = isd_files[rn]
+                print(f"running {prefix} {rn} {obj} {seed} nn={NN}")
+                opts = (
+                    f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}"
+                    f"/SD:{seed}/FI:{isd_file}/01:{parms['photon_energy']}/"
+                    f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
+                    f"20:{parms['e_high']}/21:{parms['e_low']}/NN:{NN}/TR:5"
+                    f"/31:{pixsize}/29:{parms['nang']}/84:41/CA:{parms['score41_val']}/34:{zdim}"
+                    f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}"
+                )
+                # this saves an aligned attenuation map only for the start seed
+                opts += "/FA:15" if seed != startseed else "/TR:15"
+                opts += f"/84:41/fw:{ewin_file}"
+                base = f"{prefix}_{rn}_{obj}_{seed}"
+                cmd = f"{simind} voxphan{opts}/CC:{parms['collimator']} {base} >& {base}.log"
+                if not exists(f"{base}.log") and not exists(f"{base}.res"):
+                    print(cmd)
+                    with open(f"{base}.log", "w") as fp:
+                        fp.write("\n")
+                    runcmd(cmd, maxruns=maxproc)
+                    sleep(1)
+                else:
+                    print("skipping", prefix, obj, seed)
+
     waitall()
 
 
