@@ -4,7 +4,7 @@ from glob import glob
 import re
 import numpy as np
 import NumpyIm as npi
-from os.path import exists,splitext
+from os.path import exists, splitext
 from subprocess import call
 
 """
@@ -12,28 +12,28 @@ averages mulitple runs of simulations. Simulation names are assumed to be of the
 SD is the integer seed, and simulations are averaged over that.
 """
 
-files={}
+files = {}
 for res in glob("*.res"):
-    parts=res.replace('.res','').split('_')
-    sd=parts[-1]
-    start='_'.join(parts[0:-1])
-    num_summed=0
+    parts = res.replace(".res", "").split("_")
+    sd = parts[-1]
+    start = "_".join(parts[0:-1])
+    num_summed = 0
     for im in glob(f"{start}_{sd}.*im"):
-        b,ext=splitext(im)
-        b=b.lstrip(f'{start}_{sd}')
-        fstart=f"{start}{b}"
+        b, ext = splitext(im)
+        b = b.lstrip(f"{start}_{sd}")
+        fstart = f"{start}{b}"
         if fstart in files:
             files[fstart].append(im)
         else:
-            files[fstart]=[im]
+            files[fstart] = [im]
 
-for f,ims in files.items():
+for f, ims in files.items():
     print(f"{f}:{len(ims)} {ims[0]}")
-    outf=f'{f}.avg.im'
+    outf = f"{f}.avg.im"
     if exists(outf):
-        print(f'skipping {outf}')
+        print(f"skipping {outf}")
         continue
-    num_summed=0
+    num_summed = 0
     for im in ims:
         try:
             pix = npi.ArrayFromIm(im)
@@ -51,7 +51,7 @@ for f,ims in files.items():
     else:
         print(f"saving {outf}. summed {num_summed}")
         try:
-            npi.ArrayToIm(sum.astype(np.float32)/num_summed, outf)
+            npi.ArrayToIm(sum.astype(np.float32) / num_summed, outf)
         except npi.error as e:
             print("error generating {outf}: {e}")
             exit(1)

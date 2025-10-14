@@ -1,31 +1,79 @@
-# collimator to use. See smc_dir/collim.col for a full list of available collimators
-collimator=SY-LEHR 
-#location of simind executable. It uses the Rapid version of score routine 44 to save multiple photon components
-simind= /usr/local/rapid/simind/simind 
-# this is the directory that contains the simind paramter files like energy spectra, material, etc.
+[parms]
+#collimator to use. See smc_dir/collim.col for a full list of available
+#collimators
+collimator=SY-LEHR
+ 
+#location of simind executable. It uses the Rapid version of score routine
+#44 to save multiple photon components
+simind= /usr/local/rapid/simind/simind
+
+#this is the directory that contains the simind paramter files like energy
+#spectra, material, etc.
 smc_dir=/home/frey/smc_dir/
-# file that describes what energy windows to use. It currently has a 20% photopeak and a single scatter window
-ewin_file=tc99m_ewins 
-# For a digital source, simind simulates 1 photon per projection for each 'count' in the input source image. This number increases that so NN photons are simulated for each count
-nn=10
-# number of projection views
+
+#file that describes what energy windows to use. It currently has a 20%
+#photopeak and a single scatter window
+ewin_file=ac225
+
+#For a digital source, simind simulates 1 photon per projection for each
+#'count' in the input source image. This number increases that so NN photons
+#are simulated for each count
+nn=1
+
+#number of projection views
 nang=4
-# pixel size in the input source map, attenuation image, and output projection bins
-pixsize=0.24 
-# file that contains the energy spectrum to simulate. This is for Tc-99m. The default simind energy spectra set one of the photon energies to negative, but this creates problems, so this version has all the values positive.
-isdfile=tc99m_ecf 
-# prefix for output simulation files. The base name will be named {prefix}_{object}.wNN. After that will be .im for the image with all photons and, if score41_val is > 1, there will be extensions like .prigeo.im.
-prefix=test 
-# photon energy used. If positive, then only this energy is simulated. If negative, then the energy spectrum in the isdfile is simulated.
-photon_energy=-140.5 
-#base name of the density map, dens.im. It should be an input 2-byte integer of the tissue densities in g/cc times 1000.
-densmap=dens 
-#basenames of the object source maps. These are 2-byte integer .im files where the pixel values are the number of photons to simulate in each voxel.
-objects=liver lungs tumor1 tumor2 tumor3 tumor4 tumor5  
-#Set these wide. These are overridden by the values in the energy window file, but may have some other influences
-e_low=100  
+
+#pixel size in the input source map, attenuation image, and output
+#projection bins
+pixsize=0.24
+
+#file that contains the energy spectrum to simulate. This is for Tc-99m. The
+#default simind energy spectra set one of the photon energies to negative,
+#but this creates problems, so this version has all the values positive.
+isdfile=tc99m_ecf
+
+#prefix for output simulation files. The base name will be named
+#{prefix}_{object}.wNN. After that will be .im for the image with all
+#photons and, if score41_val is > 1, there will be extensions like
+#.prigeo.im. If the prefix includes a directory, the directory must
+# exist
+prefix=sim
+
+#photon energy used. If positive, then only this energy is simulated. If
+#negative, then the energy spectrum in the isdfile is simulated.
+photon_energy=-140.5
+
+#base name of the density map, dens.im. It should be an input 2-byte integer
+#of the tissue densities in g/cc times 1000.
+densmap=dens
+
+#Base smc file
+smc_file=voxphan.smc
+
+#basenames of the object source maps. These are 2-byte integer .im files
+#where the pixel values are the number of photons to simulate in each voxel.
+objects=liver lungs tumor1 tumor2 tumor3 tumor4 tumor5
+
+#names of radionuclides that are to be simulated
+radionuclides=tc99m
+
+#Set these wide. These are overridden by the values in the energy window
+#file, but may have some other influences
+e_low=100
+
 #see above
-e_high=200 
-# this is a value from 1 to 16 that specifies the number of component images to save. 1 saves only the total projection. 16 saves all 16 images.
-score41_val=16  
+e_high=200
+
+#this is a value from 1 to 16 that specifies the number of component images
+#to save. 1 saves only the total projection. 16 saves all 16 images.
+score41_val=16
+
+[isd_files]
+#isdfiles used for each radionuclide. The keys are the radionuclides and the
+#values are the filenames
+#If an entry for a radionlucide is not present, the radionuclide name with
+#.isd appended is used
+tc99m=tc99m_ecf
+
+
 

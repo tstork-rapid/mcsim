@@ -3,7 +3,7 @@ from runcmd import runcmd, waitall
 import os
 from time import sleep
 from sys import argv, exit
-from os.path import exists,getsize
+from os.path import exists, getsize
 from math import ceil
 from multiprocessing import cpu_count
 import configparser
@@ -12,46 +12,50 @@ from os.path import exists
 import numpy as np
 import NumpyIm as npi
 
+
 def get_object_sums(objs):
-    sums={}
-    maxsum=0.0
-    errs=False
-    first=True
+    sums = {}
+    maxsum = 0.0
+    errs = False
+    first = True
     for o in objs:
-        if o in sums: 
-            errs=True
-            print(f'object {o} is duplicated')
+        if o in sums:
+            errs = True
+            print(f"object {o} is duplicated")
         try:
-            pix=npi.ArrayFromIm(f'{o}.im')
+            pix = npi.ArrayFromIm(f"{o}.im")
         except npi.error as e:
-            print(f'error reading source image for :{o}: {e}')
-            errs=True
+            print(f"error reading source image for :{o}: {e}")
+            errs = True
             continue
         if pix.min() < 0.0:
-            print('min pixel for {o} is < 0')
-            errs=True
-        sums[o]=pix.sum()
-        maxsum = max(maxsum,sums[o])
+            print("min pixel for {o} is < 0")
+            errs = True
+        sums[o] = pix.sum()
+        maxsum = max(maxsum, sums[o])
         if first:
-            first=False
-            objshape=pix.shape
-            if len(objshape)!= 3:
-                print(f'{o} is not a 3d image')
-                errs=1
+            first = False
+            objshape = pix.shape
+            if len(objshape) != 3:
+                print(f"{o} is not a 3d image")
+                errs = 1
                 continue
         else:
             if objshape != pix.shape:
-                print(f'{o} has a different size than previous objects: {pix.shape} vs {objshape}')
-                errs=True
+                print(
+                    f"{o} has a different size than previous objects: {pix.shape} vs {objshape}"
+                )
+                errs = True
                 continue
-        if not exists(f'{o}.smi'):
-            pix.astype(np.uint16).tofile(f'{o}.smi')
-        if getsize(f'{o}.smi') != 2*pix.flatten().shape[0]:
-            print('{o}.smi has unexpected size')
+        if not exists(f"{o}.smi"):
+            pix.astype(np.uint16).tofile(f"{o}.smi")
+        if getsize(f"{o}.smi") != 2 * pix.flatten().shape[0]:
+            print("{o}.smi has unexpected size")
     if errs:
-        print('errors reading objects: exiting')
+        print("errors reading objects: exiting")
         exit(1)
-    return sums,maxsum,objshape
+    return sums, maxsum, objshape
+
 
 @click.command()
 @click.option(
@@ -59,69 +63,69 @@ def get_object_sums(objs):
     required=False,
     type=int,
     default=None,
-    help='maximum number of processes to run (default is number of CPUs on the system)',
+    help="maximum number of processes to run (default is number of CPUs on the system)",
 )
-@click.argument('configfile',type=click.Path(exists=True),required=True)
-@click.argument('startseed',type=int,required=True)
-@click.argument('endseed',type=int,required=True)
+@click.argument("configfile", type=click.Path(exists=True), required=True)
+@click.argument("startseed", type=int, required=True)
+@click.argument("endseed", type=int, required=True)
 def runspectsims(configfile, startseed, endseed, maxproc):
-    ncpus=cpu_count()
+    ncpus = cpu_count()
     print(configfile)
-    with open(configfile,'r') as f:
-        pars='[parms]\n' + f.read()
-    config=configparser.ConfigParser()
+    with open(configfile, "r") as f:
+        pars = "[parms]\n" + f.read()
+    config = configparser.ConfigParser()
     config.read_string(pars)
     print(config.sections())
-    parms=config['parms']
+    parms = config["parms"]
     if maxproc is None:
         maxproc = ncpus
     else:
-        maxproc = min(maxproc,ncpus)
-    print(f'run up to {maxproc} jobs at a time')
+        maxproc = min(maxproc, ncpus)
+    print(f"run up to {maxproc} jobs at a time")
 
     try:
-        simind = parms['simind']
-        smc_dir = parms['smc_dir']
-        smc_dir = smc_dir + ('/' if smc_dir[-1] != '/' else '')
-        collimator=parms['collimator']
-        NN = int(parms['nn'])
-        pixsize=float(parms['pixsize'])
-        photon_energy=parms['photon_energy']
-        isdfile=parms['isdfile']
-        densmap=parms['densmap']
-        objs=parms['objects'].split()
-        e_low=parms['e_low']
-        e_high=parms['e_high']
-        prefix=parms['prefix']
-        score41_val=parms['score41_val']
-        ewin_file=parms['ewin_file']
-        nang=parms['nang']
+        simind = parms["simind"]
+        smc_dir = parms["smc_dir"]
+        smc_dir = smc_dir + ("/" if smc_dir[-1] != "/" else "")
+        collimator = parms["collimator"]
+        NN = int(parms["nn"])
+        pixsize = float(parms["pixsize"])
+        photon_energy = parms["photon_energy"]
+        isdfile = parms["isdfile"]
+        densmap = parms["densmap"]
+        objs = parms["objects"].split()
+        e_low = parms["e_low"]
+        e_high = parms["e_high"]
+        prefix = parms["prefix"]
+        score41_val = parms["score41_val"]
+        ewin_file = parms["ewin_file"]
+        nang = parms["nang"]
     except configparser.Error as e:
-        print(f'Error parsing {configfile}: {e}')
+        print(f"Error parsing {configfile}: {e}")
         exit(1)
 
-    if not exists(densmap+'.im'):
-        print(f'density map {densmap}.im does not exist')
+    if not exists(densmap + ".im"):
+        print(f"density map {densmap}.im does not exist")
         exit(1)
-    if not exists(ewin_file+'.win'):
-        print(f'energy window file {ewin_file+".win"} does not exist')
+    if not exists(ewin_file + ".win"):
+        print(f"energy window file {ewin_file + '.win'} does not exist")
         exit(1)
-    dens=npi.ArrayFromIm(f'{densmap}.im')
-    print(dens.min(),dens.max())
+    dens = npi.ArrayFromIm(f"{densmap}.im")
+    print(dens.min(), dens.max())
     if dens.min() < 0 or dens.max() > 5000:
-        print('density map voxels must be >= 0 and <= 5')
+        print("density map voxels must be >= 0 and <= 5")
         exit(1)
-    if not exists(f'{densmap}.dmi'):
-        dens.astype(np.uint16).tofile(f'{densmap}.dmi')
-    if getsize(f'{densmap}.dmi') != dens.flatten().shape[0]*2:
-        print(f'{densmap}.dmi has unexpected size')
+    if not exists(f"{densmap}.dmi"):
+        dens.astype(np.uint16).tofile(f"{densmap}.dmi")
+    if getsize(f"{densmap}.dmi") != dens.flatten().shape[0] * 2:
+        print(f"{densmap}.dmi has unexpected size")
         exit(1)
     os.environ["SMC_DIR"] = smc_dir
     print(simind)
     print(os.environ["SMC_DIR"])
-    objsums,maxsum,objshape=get_object_sums(objs)
+    objsums, maxsum, objshape = get_object_sums(objs)
     if objshape != dens.shape:
-        print(f'{densmap}.im and objects must be the same shape')
+        print(f"{densmap}.im and objects must be the same shape")
         exit(1)
     print(objsums)
     print(maxsum)
@@ -152,30 +156,31 @@ def runspectsims(configfile, startseed, endseed, maxproc):
     # 81: matrix size density map J
     # 82: matrix size source map J
 
-    zdim,ydim,xdim=objshape
-    z_halflen=pixsize*zdim/2.0
+    zdim, ydim, xdim = objshape
+    z_halflen = pixsize * zdim / 2.0
     for seed in range(startseed, endseed):
         for obj in objs:
-            print(f'running {prefix} {obj} {seed} nn={NN}')
+            print(f"running {prefix} {obj} {seed} nn={NN}")
             opts = (
-                    f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}/SD:{seed}/FI:{isdfile}/01:{photon_energy}/"
-                    f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
-                    f"20:{e_high}/21:{e_low}/NN:{NN}/TR:5/31:{pixsize}/29:{nang}/84:41/CA:{score41_val}/34:{zdim}"
-                    f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}"
+                f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}/SD:{seed}/FI:{isdfile}/01:{photon_energy}/"
+                f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
+                f"20:{e_high}/21:{e_low}/NN:{NN}/TR:5/31:{pixsize}/29:{nang}/84:41/CA:{score41_val}/34:{zdim}"
+                f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}"
             )
-            opts += '/FA:15' if seed != startseed else '/TR:15'
+            opts += "/FA:15" if seed != startseed else "/TR:15"
             opts += f"/84:41/fw:{ewin_file}"
-            base=f"{prefix}_{obj}_{seed}"
+            base = f"{prefix}_{obj}_{seed}"
             cmd = f"{simind} voxphan{opts}/CC:{collimator} {base} >& {base}.log"
             if not exists(f"{base}.log") and not exists(f"{base}.res"):
                 print(cmd)
-                with open(f"{base}.log",'w') as fp:
-                    fp.write('\n')
+                with open(f"{base}.log", "w") as fp:
+                    fp.write("\n")
                 runcmd(cmd, maxruns=maxproc)
                 sleep(1)
             else:
                 print("skipping", prefix, obj, seed)
     waitall()
+
 
 if __name__ == "__main__":
     runspectsims()
