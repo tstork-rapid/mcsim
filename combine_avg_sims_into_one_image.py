@@ -45,12 +45,39 @@ def combine_images(files, num_txt, prefix=""):
 # Define the pattern to match filenames starting with "sim" and ending with 'w' followed by two digits and with '.avg.im'
 pattern_re = re.compile(r"sim.*w(\d{2})\.avg\.im")
 pattern_txt = "sim*w??.avg.im"
+match_group = 1
 
 # Check if the first output file exists and exit if so
 if exists("combined.w01.avg.im"):
     print("Output files already exist. Exiting to prevent overwritting")
     exit(1)
 
+# Detect if only 1 seed exists by counting the .avg files
+if len(glob(pattern_txt)) < 1:
+    # Change patterns to not search for averaged images but for raw seed outputs
+    pattern_re = re.compile(r"sim.*_(\d*)\.w(\d{2})\.im")
+    pattern_txt = pattern_txt = "sim*w??.im"
+    match_group = 2
+
+    # Initialize a list to store the extracted numbers
+    numbers = []
+
+    # Iterate over files in the current directory
+    for filename in glob(pattern_txt):
+        match = pattern_re.search(filename)
+        if match:
+            number = int(match.group(1))
+            numbers.append(number)
+    
+    # Find min and max number if any were found
+    min_number = min(numbers) if numbers else None
+    max_number = max(numbers) if numbers else None
+    
+    if min_number != max_number:
+        print("More than one seed found but no averaged images found. Ensure avg_done_sims.py was ran.")
+        exit(1)
+    else:
+        print("No averaged images found. Continuing with single seed")
 
 # Initialize a list to store the extracted numbers
 numbers = []
@@ -59,7 +86,7 @@ numbers = []
 for filename in glob(pattern_txt):
     match = pattern_re.search(filename)
     if match:
-        number = int(match.group(1))
+        number = int(match.group(match_group))
         numbers.append(number)
 
 # Find max number if any were found
