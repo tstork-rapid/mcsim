@@ -3,7 +3,10 @@ import re
 from os.path import exists
 from sys import exit
 from glob import glob
-from runcmd import runcmd
+from runcmd import runcmd, waitall
+import math
+from multiprocessing import cpu_count
+import NumpyIm as npi
 
 
 def combine_images(files, num_txt, prefix=""):
@@ -28,12 +31,21 @@ def combine_images(files, num_txt, prefix=""):
         outfile = prefix + "temp.w" + num_txt + "." + str(i) + ".im"
         cmd = f"add -A 1 -B 1 {infile1} {infile2} {outfile}"
 
+        # Calculate how many commands can be safely ran
+        # If this goes too fast, the output from a previous command won't be ready in time for the next one
+        n_cpus = cpu_count()
+        max_proc = math.floor(len(files) / 2)
+        max_proc = min(max_proc, n_cpus)
+
         # Run command
-        runcmd(cmd, 1)
+        runcmd(cmd, max_proc)
         print("Running: " + cmd)
 
         # Track outfiles
         outfiles.append(outfile)
+    
+    # Wait for all previous commands to finish
+    waitall()
 
     # If there is an odd number of files, append the file that didn't get combined to the output list
     if len(files) % 2 == 1:
@@ -109,9 +121,10 @@ for i in num_range:
     files = []
 
     # Make a list of all file names with current window number
+    # This grabs all inserts, all radionuclides of that window number
     for file in glob(pattern_num):
         files.append(file)
-
+    
     # Initialize while loop variables
     prefix = "run"
     j = 0
