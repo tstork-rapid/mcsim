@@ -3,43 +3,8 @@ import re
 from os.path import exists
 from sys import exit
 from glob import glob
-from runcmd import runcmd
-
-
-def combine_images(files, num_txt, prefix=""):
-    """
-    Combines file 1 with file 2, file 3 with file 4, and so on. If there is an odd number of files, it will return the last file with the combined list.
-
-    Inputs:
-        files: list of file names as strings
-        num_txt: simind window number as text (including any leading zeros)
-        prefix: additional text to put in the outfile name
-    Outputs:
-        outfiles: list of file names as strings
-        saves combined images as temp files
-    """
-    # Initialize outfiles
-    outfiles = []
-
-    for i in range(0, len(files) - 1, 2):
-        # Initialize command for combining .im files
-        infile1 = files[i]
-        infile2 = files[i + 1]
-        outfile = prefix + "temp.w" + num_txt + "." + str(i) + ".im"
-        cmd = f"add -A 1 -B 1 {infile1} {infile2} {outfile}"
-
-        # Run command
-        runcmd(cmd, 1)
-        print("Running: " + cmd)
-
-        # Track outfiles
-        outfiles.append(outfile)
-
-    # If there is an odd number of files, append the file that didn't get combined to the output list
-    if len(files) % 2 == 1:
-        outfiles.append(files[-1])
-
-    return outfiles
+import numpy as np
+import NumpyIm as npi
 
 
 # Define the pattern to match filenames starting with "sim" and ending with 'w' followed by two digits and with '.avg.im'
@@ -48,7 +13,7 @@ pattern_txt = "sim*w??.avg.im"
 match_group = 1
 
 # Check if the first output file exists and exit if so
-if exists("combined.w01.avg.im"):
+if exists("combined.avg.w01.im"):
     print("Output files already exist. Exiting to prevent overwritting")
     exit(1)
 
@@ -109,43 +74,34 @@ for i in num_range:
     files = []
 
     # Make a list of all file names with current window number
+    # This grabs all inserts, all radionuclides of that window number
     for file in glob(pattern_num):
         files.append(file)
+    
+    # Initialize loop variables
+    num_summed = 0
+    outf = "combined.avg.w" + num_txt + ".im"
 
-    # Initialize while loop variables
-    prefix = "run"
-    j = 0
-    outfiles = files
-    if len(files) > 2:
-        continue_combining = True
+    for file in files:
+        try:
+            pix = npi.ArrayFromIm(file)
+        except npi.error as e:
+            print(f"error reading {file}")
+            print(f"   skipping")
+            continue
+        if num_summed == 0:
+            sum = pix.astype(np.float64)
+        else:
+            sum += pix.astype(np.float64)
+        num_summed += 1
+    if num_summed <= 1:
+        print(" summed 1 or fewer images for {outf}: no output generated")
     else:
-        continue_combining = False
-
-    # Combine all images until there are only 2 left
-    while continue_combining:
-        # Print status
-        print("Combining " + str(len(outfiles)) + " files:")
-        print(outfiles)
-
-        # Increment counter
-        j = j + 1
-
-        # Combine images
-        outfiles = combine_images(outfiles, num_txt, "run" + str(j) + ".")
-
-        # Break out of the look when there are 2 files left to combine
-        if len(outfiles) == 2:
-            continue_combining = False
-
-    # Combine last 2 images with better name
-    final_name = "combined.w" + num_txt + ".avg.im"
-    cmd = f"add -A 1 -B 1 {outfiles[0]} {outfiles[1]} {final_name}"
-    runcmd(cmd, 1)
-    print("Running: " + cmd)
-
-# Remove all temp files
-cmd = "rm *temp*.im"
-runcmd(cmd, 1)
-print("Running: " + cmd)
+        print(f"saving {outf}. summed {num_summed}")
+        try:
+            npi.ArrayToIm(sum.astype(np.float32) / num_summed, outf)
+        except npi.error as e:
+            print("error generating {outf}: {e}")
+            exit(1)
 
 exit(0)
