@@ -5,6 +5,7 @@ from sys import exit
 from glob import glob
 import numpy as np
 import NumpyIm as npi
+from runcmd import runcmd
 
 
 # Define the pattern to match filenames starting with "sim" and ending with 'w' followed by two digits and with '.avg.im'
@@ -99,7 +100,12 @@ for i in num_range:
     else:
         print(f"saving {outf}. summed {num_summed}")
         try:
-            npi.ArrayToIm(sum.astype(np.float32) / num_summed, outf)
+            npi.ArrayToIm(sum.astype(np.float32), outf)
+
+            # Collapse the images
+            cmd = f"collapse 2 2 {outf} collapsed_{outf}"
+            print("Running: " + cmd)
+            runcmd(cmd,1)
         except npi.error as e:
             print("error generating {outf}: {e}")
             exit(1)
