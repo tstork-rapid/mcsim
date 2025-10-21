@@ -1,10 +1,21 @@
 #! /usr/bin/env python3
 from os.path import exists
-from sys import exit
+from sys import exit, argv
 from glob import glob
 import numpy as np
 import NumpyIm as npi
 from runcmd import runcmd
+
+# Ensure a keV was input by the user
+if len(argv) < 2:
+    print("Usage: create_atn.py keV [keV 2] ... [keV n]")
+    print("Uses SIMIND density map to make attenuation maps (downsampled to 128x128x128 if needed) at the desired keVs")
+    exit(1)
+
+# Make a list of keVs from user input
+keVs = []
+for i in range(1,len(argv)):
+    keVs.append(float(argv[i]))
 
 # Check if SIMIND density map exists
 dens_map_txt = "*dens*.im"
@@ -59,8 +70,7 @@ else:
     print("No downsampling needed")
     ct_name = "ct.im"
 
-# Create attenuation map from CT
-keVs = [218, 440]
+# Create attenuation map from CT for each keV
 i = 0
 for keV in keVs:
     i += 1
@@ -69,9 +79,9 @@ for keV in keVs:
     runcmd(cmd,1)
 
 # Create symbolic links
-cmd = f"ln -s atn.w1.im atn.w1i1.im"
+cmd = "ln -s atn.w1.im atn.w1i1.im"
 print("Running: " + cmd)
 runcmd(cmd,1)
-cmd = f"ln -s atn.w1.im atn.w1i2.im"
+cmd = "ln -s atn.w1.im atn.w1i2.im"
 runcmd(cmd,1)
 print("Running: " + cmd)
