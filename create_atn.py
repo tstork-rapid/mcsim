@@ -38,7 +38,11 @@ npi.ArrayToIm(pix.astype(np.float32), "ct.im")
 
 # Reduce CT to 128x128x128 if necessary
 shape = pix.shape
-if shape[0] == 256 and shape[1] == 256 and shape[2] == 256:
+x_factor = shape[2] / 128
+y_factor = shape[1] / 128
+z_factor = shape[0] / 128
+
+if shape[0] != 128 or shape[1] != 128 or shape[2] != 128:
     print("Downsampling CT")
     if exists("ct_128.im"):
         print("Removing previous ct_128.im")
@@ -46,7 +50,7 @@ if shape[0] == 256 and shape[1] == 256 and shape[2] == 256:
         print("Running: " + cmd)
         runcmd(cmd,1)
 
-    cmd = "collapse3d -a 2 2 2 ct.im ct_128.im" # average the collapse, not sum, since it's not activity units
+    cmd = f"collapse3d -a {x_factor} {y_factor} {z_factor} ct.im ct_128.im" # average the collapse, not sum, since it's not activity units
     print("Running: " + cmd)
     runcmd(cmd,1)
 

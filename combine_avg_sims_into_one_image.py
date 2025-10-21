@@ -116,8 +116,8 @@ for i in num_range:
             
             # Determine scale factor to get images to 128x128
             shape = sum.shape
-            x_factor = shape[1]/128
-            y_factor = shape[2]/128
+            x_factor = shape[2]/128
+            y_factor = shape[1]/128
 
             # Collapse the images to 128x128 if needed
             if x_factor > 1 or y_factor > 1:
