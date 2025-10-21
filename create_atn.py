@@ -55,12 +55,9 @@ if shape[0] != 128 or shape[1] != 128 or shape[2] != 128:
     runcmd(cmd,1)
 
     ct_name = "ct_128.im"
-elif shape[0] == 128 and shape[1] == 128 and shape[2] == 128:
+else:
     print("No downsampling needed")
     ct_name = "ct.im"
-else:
-    print("Unsupported of desnity map, shape: (" + str(shape[0]) + "," + str(shape[1]) + "," + str(shape[2]) + ")")
-    exit(1)
 
 # Create attenuation map from CT
 keVs = [218, 440]
