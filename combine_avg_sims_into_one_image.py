@@ -6,6 +6,7 @@ from glob import glob
 import numpy as np
 import NumpyIm as npi
 from runcmd import runcmd
+import subprocess
 
 
 # Define the pattern to match filenames starting with "sim" and ending with 'w' followed by two digits and with '.avg.im'
@@ -102,10 +103,44 @@ for i in num_range:
         try:
             npi.ArrayToIm(sum.astype(np.float32), outf)
 
-            # Collapse the images
-            cmd = f"collapse 2 2 {outf} collapsed_{outf}"
+            # Find original simulation outputs
+            sims = "sim_*w" + num_txt +".im"
+            sim_files = []
+            for sim in glob(sims):
+                sim_files.append(sim)
+            
+            # Copy header from a simulation output from the current window to the summed output
+            cmd = f"imgcpinfo {sim_files[0]} {outf}" # overwrites previous output
             print("Running: " + cmd)
             runcmd(cmd,1)
+            
+            # Determine scale factor to get images to 128x128
+            shape = sum.shape
+            x_factor = shape[1]/128
+            y_factor = shape[2]/128
+
+            # Collapse the images to 128x128 if needed
+            if x_factor > 1 or y_factor > 1:
+                cmd = f"collapse {x_factor} {y_factor} {outf} collapsed.{outf}"
+                print("Running: " + cmd)
+                runcmd(cmd,1)
+
+                # Copy header from pre-collapsed images to collapsed images
+                cmd = f"imgcpinfo {outf} collapsed.{outf}" # overwrites previous output
+                print("Running: " + cmd)
+                runcmd(cmd,1)
+
+                # Get new pixel spacing rows and columns
+                pix_size = subprocess.check_output(["imghdr", "-i", "Pixel Size", outf])
+                pix_size = pix_size.decode('ascii').strip().split()
+                row_size = float(pix_size[0]) * x_factor
+                col_size = float(pix_size[1]) * y_factor
+
+                # Update pixel spacing rows and columns
+                cmd = f"imsetinfo -i \"Pixel Spacing Rows\" \"{row_size}\" -i \"Pixel Spacing Cols\" \"{col_size}\" collapsed.{outf}"
+                print("Running: " + cmd)
+                runcmd(cmd,1)
+
         except npi.error as e:
             print("error generating {outf}: {e}")
             exit(1)
