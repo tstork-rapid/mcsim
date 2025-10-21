@@ -78,10 +78,24 @@ for keV in keVs:
     print("Running: " + cmd)
     runcmd(cmd,1)
 
+    # Update pixel spacing rows and columns in header
+    cmd = f"imsetinfo -i \"Pixel Spacing Rows\" \"4.8\" -i \"Pixel Spacing Cols\" \"4.8\" -i \"Slices Spacing\" \"-4.8\" -i \"Modality\" \"CT\" atn.w{i}.im"
+    print("Running: " + cmd)
+    runcmd(cmd,1)
+
 # Create symbolic links
+if exists("atn.w1i1.im"):
+    cmd = "rm atn.w1i1.im"
+    print("Running: " + cmd)
+    runcmd(cmd,1)
 cmd = "ln -s atn.w1.im atn.w1i1.im"
 print("Running: " + cmd)
 runcmd(cmd,1)
+
+if exists("atn.w1i2.im"):
+    cmd = "rm atn.w1i2.im"
+    print("Running: " + cmd)
+    runcmd(cmd,1)
 cmd = "ln -s atn.w1.im atn.w1i2.im"
-runcmd(cmd,1)
 print("Running: " + cmd)
+runcmd(cmd,1)
