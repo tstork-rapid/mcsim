@@ -161,8 +161,8 @@ for i in window_range:
 
     # Write outputs
     sum_outf = f"combined.avg.w{num_txt}.im"
-    scaled_outf = f"prj.nf.avg.w{num_txt}.im"
-    noise_outf = f"prj.n.avg.w{num_txt}.im"
+    scaled_outf = f"prj.nf.w{num_txt}.im"
+    noise_outf = f"prj.n.w{num_txt}.im"
     if num_summed <= 1:
         print("Summed 1 or fewer images for {outf}: no output generated")
     else:
@@ -196,5 +196,10 @@ for i in window_range:
         # Downsample noise free and noisey projections
         reduce_proj_to_128(scaled_outf)
         reduce_proj_to_128(noise_outf)
+
+        # Remove non-scaled projections
+        cmd = f"rm {sum_outf}"
+        print("Running: " + cmd)
+        runcmd(cmd,1,2)
 
 exit(0)
