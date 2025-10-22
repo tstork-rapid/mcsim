@@ -1,11 +1,8 @@
 #! /usr/bin/env python3
-import re
 from os.path import exists
 from sys import exit, argv
-from glob import glob
 import numpy as np
 import NumpyIm as npi
-from runcmd import runcmd, waitall
 import subprocess
 
 # Ensure user inputs are present
