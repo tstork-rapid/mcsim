@@ -183,6 +183,11 @@ for i in window_range:
         # Copy header from summed output to scaled summed output
         copy_header(sum_outf,scaled_outf)
 
+        # Write the frame duration and activity to the header
+        cmd = f"imsetinfo -i \"Actual Frame Duration\" \"{frame_duration_s*1000}\" -i \"Radionuclide Total Dose\" \"{activity_MBq}\" {scaled_outf}"
+        print("Running: " + cmd)
+        runcmd(cmd,1,2)
+
         # Generate noisey projections
         if exists(noise_outf):
             # Remove noisey projection if it exists
