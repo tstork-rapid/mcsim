@@ -13,6 +13,11 @@ if len(argv) != 5:
 
 # Retrieve user input
 CF = float(argv[1])
+if CF <= 0:
+    print("---Calibration mode---")
+    calibration_mode = True
+else:
+    calibration_mode = False
 proj = argv[2]
 recon = argv[3]
 outf = argv[4]
@@ -47,33 +52,44 @@ except:
     print("No number of projections found in header")
     num_frames = int(input("Enter the number of projections: "))
 
-# Convert image to cps
-pix = pix / (frame_duration * num_frames)
+if calibration_mode:
+    # Sum the counts
+    tot_counts = np.sum(pix)
+    print(f"{tot_counts} counts in image")
+        
+    activity_MBq = float(input("Enter the activity in MBq: "))
 
-# Get the voxel dimensions
-slice_thickness = subprocess.check_output(["imghdr", "-i", "SliceThickness", recon])
-slice_thickness = slice_thickness.decode('ascii')
-try:
-    slice_thickness = float(slice_thickness)
-    print(f"Found slice thickness of {slice_thickness} cm in header")
-except:
-    print("No slice thickness found in header")
-    slice_thickness = float(input("Enter the slice thickness in cm: "))
+    CF = (tot_counts / (frame_duration * num_frames)) / activity_MBq
+    print(f"CF = {CF} cps/MBq")
+    exit(1)
+else:
+    # Convert image to cps
+    pix = pix / (frame_duration * num_frames)
 
-pixel_width = subprocess.check_output(["imghdr", "-i", "PixelWidth", recon])
-pixel_width = pixel_width.decode('ascii')
-try:
-    pixel_width = float(pixel_width)
-    print(f"Found pixel width of {pixel_width} cm in header")
-except:
-    print("No pixel width found in header")
-    pixel_width = float(input("Enter the pixel width in cm: "))
+    # Get the voxel dimensions
+    slice_thickness = subprocess.check_output(["imghdr", "-i", "SliceThickness", recon])
+    slice_thickness = slice_thickness.decode('ascii')
+    try:
+        slice_thickness = float(slice_thickness)
+        print(f"Found slice thickness of {slice_thickness} cm in header")
+    except:
+        print("No slice thickness found in header")
+        slice_thickness = float(input("Enter the slice thickness in cm: "))
 
-# Convert image to cps/mL
-pix = pix / (slice_thickness * pixel_width * pixel_width) # assumes square pixels in the axial direction
+    pixel_width = subprocess.check_output(["imghdr", "-i", "PixelWidth", recon])
+    pixel_width = pixel_width.decode('ascii')
+    try:
+        pixel_width = float(pixel_width)
+        print(f"Found pixel width of {pixel_width} cm in header")
+    except:
+        print("No pixel width found in header")
+        pixel_width = float(input("Enter the pixel width in cm: "))
 
-# Convert image to Bq/mL
-pix = pix * (1 / CF) * 1e6
+    # Convert image to cps/mL
+    pix = pix / (slice_thickness * pixel_width * pixel_width) # assumes square pixels in the axial direction
 
-# Save quantified image
+    # Convert image to Bq/mL
+    pix = pix * (1 / CF) * 1e6
+
+# Save output image
 npi.ArrayToIm(pix.astype(np.float32), outf)
