@@ -29,10 +29,10 @@ if exists(out_prefix + "nf.reconi1.1.im") or exists (out_prefix + "n.reconi1.1.i
     exit(1)
 
 # Reconstruct noise free projections
-cmd = f"~frey/bin/osemmw mwosem.2ws.par {prj_nf} {atn} {out_prefix}.nf.recon >& {out_prefix}.nf.recon.log"
-runcmd(cmd,cpu_count())
+cmd = f"nice -n 9 ~frey/bin/osemmw mwosem.2ws.par {prj_nf} {atn} {out_prefix}.nf.recon >& {out_prefix}.nf.recon.log"
+runcmd(cmd,cpu_count(), 60)
 waitall()
 
 # Reconstruct noisey projections
-cmd = f"~frey/bin/osemmw mwosem.2ws.par {prj_n} {atn} {out_prefix}.n.recon >& {out_prefix}.n.recon.log"
-runcmd(cmd,cpu_count())
+cmd = f"nice -n 9 ~frey/bin/osemmw mwosem.2ws.par {prj_n} {atn} {out_prefix}.n.recon >& {out_prefix}.n.recon.log"
+runcmd(cmd,cpu_count(), 60)
