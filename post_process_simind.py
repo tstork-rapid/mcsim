@@ -209,9 +209,9 @@ for i in window_range:
 
         # Combine VOIs for a given window
         if num_summed_outer == 0:
-            combined_scaled_sum = sum.astype(np.float64)
+            combined_scaled_sum = scaled_sum.astype(np.float64)
         else:
-            combined_scaled_sum += sum.astype(np.float64)
+            combined_scaled_sum += scaled_sum.astype(np.float64)
         num_summed_outer += 1
 
     print(f"Combined {num_summed_outer} scaled VOIs for window {num_txt}")
