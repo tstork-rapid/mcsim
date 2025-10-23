@@ -6,6 +6,7 @@ import numpy as np
 import NumpyIm as npi
 from os.path import exists, splitext
 from subprocess import call
+from runcmd import runcmd
 
 """
 averages mulitple runs of simulations. Simulation names are assumed to be of the form a_[b_...]SD.ext.im
@@ -39,7 +40,7 @@ for f, ims in files.items():
             pix = npi.ArrayFromIm(im)
         except npi.error as e:
             print(f"error reading {im}")
-            print(f"   skipping")
+            print("   skipping")
             continue
         if num_summed == 0:
             sum = pix.astype(np.float64)
@@ -52,6 +53,12 @@ for f, ims in files.items():
         print(f"saving {outf}. summed {num_summed}")
         try:
             npi.ArrayToIm(sum.astype(np.float32) / num_summed, outf)
+
+            # Copy the header from a simulation output to the averaged file
+            cmd = f"imgcpinfo {ims[0]} {outf}" # overwrites previous output
+            print("Running: " + cmd)
+            runcmd(cmd,1,2)
+
         except npi.error as e:
             print("error generating {outf}: {e}")
             exit(1)

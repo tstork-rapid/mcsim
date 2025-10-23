@@ -1,0 +1,10 @@
+#activity = 270 kBq/mL -> https://pmc.ncbi.nlm.nih.gov/articles/PMC11082108/
+
+nemab1 = 7.1609
+nemab2 = 3.1033
+nemab3 = 1.5053
+nemab4 = 0.6946
+nemab5 = 0.3106
+nemab6 = 0.1414
+
+frame duration = 30
