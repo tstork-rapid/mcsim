@@ -70,6 +70,40 @@ def sum_voxels_in_sphere(array, center, radius):
     # Sum voxel values where mask is True
     return array[mask].sum()
 
+def display_circle(pix, radius):
+    # Extract slices for 3 views
+    axial_slice = pix[centroid_z,:,:]
+    sagittal_slice = pix[:,:,centroid_x]
+    coronal_slice = pix[:, centroid_y, :]
+
+    # Create figure with 3 subplots
+    fig, axes = plt.subplots(1, 3, figsize=(15,5))
+
+    # Axial view
+    im0 = axes[0].imshow(axial_slice, cmap='gray', origin='upper')
+    axes[0].set_title(f"Axial (Z={centroid_z})")
+    circle_axial = Circle((centroid_x, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[0].add_patch(circle_axial)
+    fig.colorbar(im0, ax=axes[0], label="Counts")
+
+    # Sagittal view
+    im1 = axes[1].imshow(sagittal_slice, cmap='gray', origin='upper')
+    axes[1].set_title(f"Sagittal (X={centroid_x})")
+    circle_sagittal = Circle((centroid_z, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[1].add_patch(circle_sagittal)
+    fig.colorbar(im1, ax=axes[1], label="Counts")
+
+    # Coronal view
+    im2 = axes[2].imshow(coronal_slice, cmap='gray', origin='upper')
+    axes[2].set_title(f"Coronal (Y={centroid_y})")
+    circle_coronal = Circle((centroid_x, centroid_z), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[2].add_patch(circle_coronal)
+    fig.colorbar(im2, ax=axes[2], label="Counts")
+
+    # Display the centroid with a circle of calculated radius
+    plt.tight_layout()
+    plt.show()
+
 # Ensure user inputs are present
 if len(argv) != 4 and len(argv) != 5:
     print("Usage: quantify.py CF projection_file recon_file outfile")
@@ -137,38 +171,17 @@ if calibration_mode:
     center, radius = fit_sphere(coords, weights)
     print(f"Calculated radius = {radius}")
 
-    # Extract slices for 3 views
-    axial_slice = pix[centroid_z,:,:]
-    sagittal_slice = pix[:,:,centroid_x]
-    coronal_slice = pix[:, centroid_y, :]
-
-    # Create figure with 3 subplots
-    fig, axes = plt.subplots(1, 3, figsize=(15,5))
-
-    # Axial view
-    im0 = axes[0].imshow(axial_slice, cmap='gray', origin='upper')
-    axes[0].set_title(f"Axial (Z={centroid_z})")
-    circle_axial = Circle((centroid_x, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
-    axes[0].add_patch(circle_axial)
-    fig.colorbar(im0, ax=axes[0], label="Counts")
-
-    # Sagittal view
-    im1 = axes[1].imshow(sagittal_slice, cmap='gray', origin='upper')
-    axes[1].set_title(f"Sagittal (X={centroid_x})")
-    circle_sagittal = Circle((centroid_z, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
-    axes[1].add_patch(circle_sagittal)
-    fig.colorbar(im1, ax=axes[1], label="Counts")
-
-    # Coronal view
-    im2 = axes[2].imshow(coronal_slice, cmap='gray', origin='upper')
-    axes[2].set_title(f"Coronal (Y={centroid_y})")
-    circle_coronal = Circle((centroid_x, centroid_z), radius, color='red', alpha=0.5, fill=False, linewidth=2)
-    axes[2].add_patch(circle_coronal)
-    fig.colorbar(im2, ax=axes[2], label="Counts")               
-
-    # Display the centroid with a circle of calculated radius
-    plt.tight_layout()
-    plt.show()
+    # Ask for confirmation on radius
+    accepted = False
+    while accepted == False:
+        display_circle(pix, radius)
+        response = input("Is the VOI acceptable (Y/N)? ")
+        if response == 'Y' or response == 'y':
+            accepted = True
+        elif response == 'N' or response == 'n':
+            radius = float(input("Enter in the new radius: "))
+        else:
+            print("Unknown response, please answer Y or N.")
 
     # Sum the in the sphere
     tot_counts = sum_voxels_in_sphere(pix, (centroid_x, centroid_y, centroid_z), radius)
