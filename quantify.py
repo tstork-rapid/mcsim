@@ -94,16 +94,39 @@ if calibration_mode:
     coords = np.argwhere(pix > threshold)  # pick voxels above threshold
     weights = pix[tuple(coords.T)]         # intensity as weight
     center, radius = fit_sphere(coords, weights)
-    print(f"Center = {center}, radius = {radius}")
+    print(f"Calculated radius = {radius}")
+
+    # Extract slices for 3 views
+    axial_slice = pix[centroid_z,:,:]
+    sagittal_slice = pix[:,:,centroid_x]
+    coronal_slice = pix[:, centroid_y, :]
+
+    # Create figure with 3 subplots
+    fig, axes = plt.subplots(1, 3, figsize=(15,5))
+
+    # Axial view
+    im0 = axes[0].imshow(axial_slice, cmap='gray', origin='upper')
+    axes[0].set_title(f"Axial (Z={centroid_z})")
+    circle_axial = Circle((centroid_x, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[0].add_patch(circle_axial)
+    fig.colorbar(im0, ax=axes[0], label="Counts")
+
+    # Sagittal view
+    im1 = axes[1].imshow(sagittal_slice, cmap='gray', origin='upper')
+    axes[1].set_title(f"Sagittal (X={centroid_x})")
+    circle_sagittal = Circle((centroid_z, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[1].add_patch(circle_sagittal)
+    fig.colorbar(im1, ax=axes[1], label="Counts")
+
+    # Coronal view
+    im2 = axes[2].imshow(coronal_slice, cmap='gray', origin='upper')
+    axes[2].set_title(f"Coronal (Y={centroid_y})")
+    circle_coronal = Circle((centroid_x, centroid_z), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[2].add_patch(circle_coronal)
+    fig.colorbar(im2, ax=axes[2], label="Counts")               
 
     # Display the centroid with a circle of calculated radius
-    centroid_slice = pix[centroid_z,:,:]
-    fig, ax = plt.subplots()
-    im = ax.imshow(centroid_slice, cmap='gray', origin='upper')
-    ax.set_title(f"Slice {centroid_z}")
-    fig.colorbar(im, ax=ax, label="Counts")
-    circle = Circle((centroid_x, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
-    ax.add_patch(circle)
+    plt.tight_layout()
     plt.show()
 
     # Sum the in the sphere
