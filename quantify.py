@@ -8,25 +8,66 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 
 def fit_sphere(points, weights=None):
-    # points: Nx3 array of (x, y, z)
+    """
+    Fit a sphere to a set of 3D points using least squares.
+    
+    Parameters:
+        points (ndarray): Nx3 array of (x, y, z) coordinates.
+        weights (ndarray, optional): N-length array of weights for each point.
+    
+    Returns:
+        center (ndarray): Estimated sphere center (cx, cy, cz).
+        radius (float): Estimated sphere radius.
+    """
+    # Construct matrix A for linear system: [2x, 2y, 2z, 1]
     A = np.hstack((2*points, np.ones((points.shape[0], 1))))
+    
+    # Compute vector f = x^2 + y^2 + z^2 for each point
     f = np.sum(points**2, axis=1)
+
+    # Apply weights if provided
     if weights is not None:
         W = np.diag(weights)
         A = W @ A
         f = W @ f
+
+    # Solve least squares: A * c ~= f
+    # c contains [cx, cy, cz, constant]
     c, *_ = np.linalg.lstsq(A, f, rcond=None)
+
+    # Extract center coordinates
     center = c[:3]
+
+    # Compute radius using formula: r = sqrt(cx^2 + cy^2 + cz^2 + constant)
     radius = np.sqrt(np.sum(center**2) + c[3])
+
     return center, radius
 
 def sum_voxels_in_sphere(array, center, radius):
-    # center = (cx, cy, cz)
+    """
+    Sum voxel values within a sphere of given center and radius.
+    
+    Parameters:
+        array (ndarray): 3D array of voxel intensities.
+        center (tuple): (cx, cy, cz) coordinates of sphere center.
+        radius (float): Sphere radius in voxel units.
+    
+    Returns:
+        float: Sum of voxel values inside the sphere.
+    """
+
+    # Generate 3D grid of voxel coordinates
     z, y, x = np.indices(array.shape)
+
+    # Compute Euclidean distance from each voxel to the center
     distances = np.sqrt((x - center[0])**2 +
                         (y - center[1])**2 +
                         (z - center[2])**2)
+    
+    # Create mask for voxels inside the sphere
     mask = distances <= radius
+
+    # Sum voxel values where mask is True
     return array[mask].sum()
 
 # Ensure user inputs are present
@@ -86,7 +127,7 @@ if calibration_mode:
     centroid_z = round(float(centroid[-1]))
     print(f"Centroid found at {centroid_x}, {centroid_y}, {centroid_z}")
     
-    # Calculate radius of sphere
+    # Calculate radius of sphere (assumes isotopric voxels)
     mean = pix.mean()
     std = pix.std()
     threshold = mean + 2 * std
