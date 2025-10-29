@@ -4,7 +4,9 @@ from sys import exit, argv
 from glob import glob
 import numpy as np
 import NumpyIm as npi
-from runcmd import runcmd
+from runcmd import runcmd, waitall
+
+# TODO: check HCT and ICT interfiles from SIMIND. Scale interfile by 1 and it should output .im
 
 # Ensure a keV was input by the user
 if len(argv) < 2:
@@ -18,7 +20,7 @@ for i in range(1,len(argv)):
     keVs.append(float(argv[i]))
 
 # Check if SIMIND density map exists
-dens_map_txt = "*dens*.im"
+dens_map_txt = "*.hct"
 dens_map_files = glob(dens_map_txt)
 if len(dens_map_files) < 1:
     print("No density map found")
@@ -26,9 +28,15 @@ if len(dens_map_files) < 1:
 elif len(dens_map_files) > 1:
     print("More than one density map found, using " + dens_map_files[0])
 
-# Load density map
+# Convert .hct/.ict to .im
 dens_map_file = dens_map_files[0]
-pix = npi.ArrayFromIm(dens_map_file)
+cmd = f"imgconv -r {dens_map_file} simind_dens_map.im"
+print("Running: " + cmd)
+runcmd(cmd,1)
+waitall()
+
+# Load density map
+pix = npi.ArrayFromIm("simind_dens_map.im")
 
 # Check if there is only water and air
 mask = (pix != 0) & (pix != 1000)
