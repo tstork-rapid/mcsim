@@ -216,7 +216,7 @@ def runspectsims(configfile, startseed, endseed, maxproc):
                 print(f"running {prefix} {rn} {obj} {seed} nn={NN}")
                 opts = (
                     f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}"
-                    f"/SD:{seed}/FI:{isd_file}/01:{parms['photon_energy']}"
+                    f"/SD:{seed}/FI:{isd_file}/IN:x22,3x/01:{parms['photon_energy']}"
                     f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
                     f"/20:{parms['e_high']}/21:{parms['e_low']}/NN:{NN}/TR:5"
                     f"/31:{pixsize}/29:{parms['nang']}/84:41/CA:{parms['score41_val']}/34:{zdim}"
