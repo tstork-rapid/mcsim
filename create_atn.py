@@ -9,16 +9,11 @@ import subprocess
 
 
 # Ensure a keV was input by the user
-if len(argv) < 2:
+if len(argv) > 1 :
     print("Usage: create_atn.py")
-    print("Uses SIMIND attenuation map to make attenuation maps (downsampled to 128x128x128 if needed)")
+    print("Uses SIMIND attenuation map to make attenuation maps for osem (downsampled to 128x128x128 if needed)")
     print("MUST HAVE INDEX 22 IN SIMIND.INI SET TO 3")
     exit(1)
-
-# Make a list of keVs from user input
-keVs = []
-for i in range(1,len(argv)):
-    keVs.append(float(argv[i]))
 
 # Check if SIMIND density map exists
 atn_map_txt = "*.hct"
