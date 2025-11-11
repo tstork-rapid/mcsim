@@ -97,6 +97,7 @@ if exists("prj.nf.w01.im") or exists("prj.n.w01.im"):
     print("Output files already exist. Exiting to prevent overwritting")
     exit(1)
 
+avg_name = ".avg"
 # Detect if any .avg files exist
 if len(glob(pattern_txt)) < 1:
     # Change patterns to not search for averaged images but for raw seed outputs
@@ -128,6 +129,8 @@ if len(glob(pattern_txt)) < 1:
         pattern_txt = "sim*w??.avg.im"
     else:
         print("No averaged images found. Continuing with single seed")
+        pattern_re = re.compile(r"sim_(\w{1,2}\d{1,3})_(.*).w(\d{2})\.im")
+        avg_name = ""
 
 # Initialize a list to store the extracted window numbers and vois
 radionuclides = []
@@ -150,6 +153,8 @@ for filename in glob(pattern_txt):
 # Remove duplicates from string lists
 radionuclides = list(set(radionuclides))
 vois = list(set(vois))
+
+# TODO: print out radionuclides so it matches what is expected
 
 # Find max and min window numbers
 max_window = max(window_numbers)
@@ -174,7 +179,7 @@ for i in window_range:
         sum_outf = f"sim_all_{voi}.w{num_txt}.im"
 
         for radionuclide in radionuclides:
-            file_name = f"sim_{radionuclide}_{voi}.w{num_txt}.avg.im"
+            file_name = f"sim_{radionuclide}_{voi}.w{num_txt}{avg_name}.im"
             
             # Combine all radionuclides in a given VOI in a given window
             try:
