@@ -55,9 +55,7 @@ for f, ims in files.items():
             npi.ArrayToIm(sum.astype(np.float32) / num_summed, outf)
 
             # Copy the header from a simulation output to the averaged file
-            cmd = f"imgcpinfo {ims[0]} {outf}" # overwrites previous output
-            print("Running: " + cmd)
-            runcmd(cmd,1,2)
+            call(["imgcpinfo", ims[0], outf])
 
         except npi.error as e:
             print("error generating {outf}: {e}")
