@@ -150,7 +150,7 @@ for filename in glob(pattern_txt):
 radionuclides = list(set(radionuclides))
 vois = list(set(vois))
 
-# TODO: print out radionuclides so it matches what is expected
+print(f"Found the following radionuclides:\n", radionuclides)
 
 # Find max and min window numbers
 max_window = max(window_numbers)
@@ -184,11 +184,15 @@ for i in window_range:
                 print(f"error reading {file_name}")
                 print("   skipping")
                 continue
+            
+            # Get the branching ratio of the radionuclide
+            branch_ratio = float(obj_dict[radionuclide])
+            print(f"Using {branch_ratio} branching ratio for {radionuclide}")
 
             if num_summed_inner == 0:
-                sum = pix.astype(np.float64)
+                sum = (pix.astype(np.float64) * branch_ratio)
             else:
-                sum += pix.astype(np.float64)
+                sum += (pix.astype(np.float64) * branch_ratio)
             num_summed_inner += 1
         
         # Save combined radionuclide images
