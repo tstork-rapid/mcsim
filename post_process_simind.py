@@ -44,7 +44,6 @@ def reduce_proj_to_128(file):
 
             # Update pixel spacing rows and columns
             subprocess.call(["imsetinfo", "-i", "Pixel Spacing Rows", str(row_size), "-i", "Pixel Spacing Cols", str(col_size), outf])
-            #cmd = f"imsetinfo -i \"Pixel Spacing Rows\" \"{row_size}\" -i \"Pixel Spacing Cols\" \"{col_size}\" {outf}"
 
 def copy_header(header_file, image_file):
     subprocess.call(["imgcpinfo", header_file, image_file])
