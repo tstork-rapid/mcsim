@@ -4,7 +4,6 @@ from sys import exit, argv
 from glob import glob
 import numpy as np
 import NumpyIm as npi
-from runcmd import runcmd, waitall
 import subprocess
 
 
@@ -26,10 +25,7 @@ elif len(atn_map_files) > 1:
 
 # Convert .hct/.ict to .im
 atn_map_file = atn_map_files[0]
-cmd = f"imgconv -r {atn_map_file} simind_atn_map.im"
-print("Running: " + cmd)
-runcmd(cmd,1)
-waitall()
+subprocess.call(["imgconv", "-r", atn_map_file, "simind_atn_map.im"])
 
 # Load attenuation map
 pix = npi.ArrayFromIm("simind_atn_map.im")
@@ -39,7 +35,7 @@ pixel_size = subprocess.check_output(["imghdr", "-i", "Pixel Size", atn_map_file
 bin_width = pixel_size.decode('ascii').strip().split(" ")
 
 # Rotate CT -90 degrees about Z axis
-pix = np.rot90(pix, k=3, axes=(1, 2))
+#pix = np.rot90(pix, k=3, axes=(1, 2))
 
 # Save attenuation map as .im
 npi.ArrayToIm(pix.astype(np.float32), "temp.im")
@@ -55,14 +51,9 @@ if shape[0] != 128 or shape[1] != 128 or shape[2] != 128:
     print("Downsampling attenuation map")
     if exists("temp_128.im"):
         print("Removing previous temp_128.im")
-        cmd = "rm temp_128.im"
-        print("Running: " + cmd)
-        runcmd(cmd,1)
+        subprocess.call(["rm", "temp_128.im"])
 
-    cmd = f"collapse3d -a {x_factor} {y_factor} {z_factor} temp.im temp_128.im" # average the collapse, not sum, since it's not activity units
-    print("Running: " + cmd)
-    runcmd(cmd,1)
-    waitall()
+    subprocess.call(["collapse3d", "-a", str(x_factor), str(y_factor), str(z_factor), "temp.im", "temp_128.im"])
 
     atn_name = "temp_128.im"
 else:
@@ -75,27 +66,19 @@ pix = pix * new_bin_width / 10
 npi.ArrayToIm(pix.astype(np.float32), "atn.im")
 
 # Update pixel spacing rows and columns in header
-cmd = f"imsetinfo -i \"Pixel Spacing Rows\" \"{new_bin_width}\" -i \"Pixel Spacing Cols\" \"{new_bin_width}\" -i \"Slices Spacing\" \"-{new_bin_width}\" -i \"Modality\" \"CT\" atn.im"
-print("Running: " + cmd)
-runcmd(cmd,1)
+subprocess.call(["imsetinfo", "-i", "Pixel Spacing Rows", str(new_bin_width), "-i", "Pixel Spacing Cols", str(new_bin_width), "-i", "Slices Spacing", str(-1 * new_bin_width), "-i", "Modality", "CT", "atn.im"])
 
 # Create symbolic links
 if exists("atn.w1i1.im"):
-    cmd = "rm atn.w1i1.im"
-    print("Running: " + cmd)
-    runcmd(cmd,1)
-cmd = "ln -s atn.im atn.w1i1.im"
-print("Running: " + cmd)
-runcmd(cmd,1)
+    subprocess.call(["rm", "atn.w1i1.im"])
+
+subprocess.call(["ln", "-s", "atn.im", "atn.w1i1.im"])
 
 if exists("atn.w1i2.im"):
-    cmd = "rm atn.w1i2.im"
-    print("Running: " + cmd)
-    runcmd(cmd,1)
-cmd = "ln -s atn.im atn.w1i2.im"
-print("Running: " + cmd)
-runcmd(cmd,1)
+    subprocess.call(["rm", "atn.w1i2.im"])
+
+subprocess.call(["ln", "-s", "atn.im", "atn.w1i2.im"])
 
 # Remove temp .im images
-cmd = "rm temp*.im"
-runcmd(cmd,1)
+temp_files = glob("temp*.im")
+subprocess.call(["rm", *temp_files])
