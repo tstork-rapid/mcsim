@@ -6,42 +6,165 @@ import NumpyIm as npi
 import subprocess
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
+from scipy import ndimage as ndi
+from skimage import filters
 
-def fit_sphere(points, weights=None):
+def threshold_2D_and_3D(pix, debug=False):
     """
-    Fit a sphere to a set of 3D points using least squares.
-    
-    Parameters:
-        points (ndarray): Nx3 array of (x, y, z) coordinates.
-        weights (ndarray, optional): N-length array of weights for each point.
-    
+    Uses Otsu's method to determine the threshold between the foreground and background of 2D/3D image data.
+
+    Args:
+        pix: 2D NumPy array (Y, X) representing the image volume
+        debug: boolean
+
     Returns:
-        center (ndarray): Estimated sphere center (cx, cy, cz).
-        radius (float): Estimated sphere radius.
+        binary_pix: 2D binary array representing the thresholded image volume
     """
-    # Construct matrix A for linear system: [2x, 2y, 2z, 1]
-    A = np.hstack((2*points, np.ones((points.shape[0], 1))))
-    
-    # Compute vector f = x^2 + y^2 + z^2 for each point
-    f = np.sum(points**2, axis=1)
 
-    # Apply weights if provided
-    if weights is not None:
-        W = np.diag(weights)
-        A = W @ A
-        f = W @ f
+    # Threshold image
+    otsu_threshold = filters.threshold_otsu(pix)
 
-    # Solve least squares: A * c ~= f
-    # c contains [cx, cy, cz, constant]
-    c, *_ = np.linalg.lstsq(A, f, rcond=None)
+    if otsu_threshold == 0:
+        print("Otsu threshold failed. Use debug mode to investigate. Skipping this image for radii calculation")
+        otsu_threshold = np.max(pix)-1 # Set threshold to max pixel to make a very small radii, which effectively tosses this image out later (since we use the max radius across all images)
 
-    # Extract center coordinates
-    center = c[:3]
+    binary_pix = pix > otsu_threshold
+    print(f"Threshold value = {otsu_threshold}") if debug else None
 
-    # Compute radius using formula: r = sqrt(cx^2 + cy^2 + cz^2 + constant)
-    radius = np.sqrt(np.sum(center**2) + c[3])
+    # Binary closing
+    ndi.binary_closing(binary_pix, iterations=5, output=binary_pix)
 
-    return center, radius
+    return binary_pix
+
+def find_sphere_centers(pix, binary_mask, n_spheres=1, min_voxels=9):
+    """
+    Compute intensity-weighted centers of mass (COM) for each connected component in a binary mask,
+    then return up to n_spheres centers with the highest total activity.
+
+    Args:
+        pix: 3D numpy array (Z, Y, X), grayscale
+        binary_mask: 3D numpy array (Z, Y, X), 0/1
+        n_spheres: int, maximum number of spheres to return
+        min_voxels: int, minimum component size in voxels to keep
+    Returns:
+        List of (z, y, x) float centers (COM).
+    """
+    shape = pix.shape
+    if len(shape) == 2:
+        # PSEN data
+        data_3D = False
+        structure = np.ones((3, 3), dtype=bool)
+    else:
+        # Recon data
+        data_3D = True
+        structure = np.ones((3, 3, 3), dtype=bool)  # 26-connectivity
+
+    # Label connnected components in the binary mask
+    labels, nlab = ndi.label(binary_mask.astype(bool), structure=structure)
+
+    # If no components were found, return an empty list early
+    if nlab == 0:
+        return []
+
+    # Prepare a "safe" copy of the grascale volume to use as weights
+    vol_safe = np.nan_to_num(pix.astype(np.float32), nan=0.0, posinf=0.0, neginf=0.0)
+
+    # Compute component sizes by counting label occurrences
+    sizes = np.bincount(labels.ravel())
+
+    # Collect tuples of (total_intensity, center) for each kept component
+    entries = [] # unknown length of final array
+    for lab in range(1, nlab + 1):
+        # Get size of this component if 'lab' is within the array bounds of 'sizes', otherwise fall back to computing by comparison
+        size = int(sizes[lab]) if lab < sizes.size else int((labels == lab).sum())
+
+        # Skip components that are smaller than the minimum threshold
+        if size < min_voxels:
+            continue
+
+        # Intensity-weighted COM within the component
+        if data_3D:
+            cz, cy, cx = ndi.center_of_mass(vol_safe, labels=labels, index=lab)
+        else:
+            cy, cx = ndi.center_of_mass(vol_safe, labels=labels, index=lab)
+        
+        # Total activity inside this component
+        total_intensity = float(vol_safe[labels == lab].sum())
+
+        if data_3D:
+            entries.append((total_intensity, (cz, cy, cx)))
+        else:
+            entries.append((total_intensity, (cy, cx)))
+
+    # Sort by total activity and keep top 'n_spheres'
+    entries.sort(key=lambda t: t[0], reverse=True)
+
+    # Return the COMs for the top 'n_spheres' components
+    return [c for _, c in entries[:n_spheres]]
+
+def get_spacing(file_name):
+    """
+    Get the Z, Y, X spacing of the image data.
+
+    Args:
+        file_name: file location of the image data file
+
+    Returns:
+        spacing: array of the image spacing in (Z, Y, X)
+    """
+
+    try:
+        spacing = subprocess.check_output(["imghdr", "-i", "Pixel Size", file_name]) # in mm
+        spacing = spacing.decode('ascii').strip().split(" ")
+        spacing.reverse() # convert from X/Y/Z to Z/Y/X 
+        spacing = [float(s) for s in spacing] # convert to float
+
+        if spacing == [0, 0, 0]:
+            raise Exception
+    except:
+        print("Could not determine pixel spacing from data.")
+        spacing = input("Enter square voxel dimension in mm: ")
+        spacing = [float(spacing)] * 3
+
+    return spacing
+
+def compute_radii_from_binary_3D(binary_mask, centers, spacing, debug=False):
+    """
+    Return radii (in mm) for each center, in the same order as `centers`
+
+    Args:
+        binary_mask : 3D numpy array (Z,Y,X), 0/1
+        centers     : iterable of (z, y, x) floats (same indexing as the array)
+        spacing     : (dz, dy, dx) voxel spacing in mm
+
+    Returns:
+        radii_mm : list of float radii in mm, same length/order as `centers`.
+    """
+    # Fix negative z for this function
+    spacing = [abs(s) for s in spacing]
+
+    # Create a boolean foreground mask 
+    mask = binary_mask.astype(bool)
+
+    # Label connected components
+    structure = np.ones((3, 3, 3), dtype=int)
+    labeled, num_features = ndi.label(mask, structure=structure)
+
+    radii_mm = np.empty(len(centers), dtype=float)
+    for i, c in enumerate(centers):
+        c_vox = tuple(int(round(v)) for v in c) # round center to nearest voxel
+        lbl = labeled[c_vox] # get the label at the center
+        erroded = ndi.binary_erosion(mask, structure=structure, border_value=0) # errode the mask
+        comp = (labeled == lbl) # get component
+        shell = comp & (~erroded) # compute XOR of component and errosion
+        idxs = np.array(np.nonzero(shell)).T
+
+        diffs = (idxs - c) * np.array(spacing)
+        dists = np.linalg.norm(diffs, axis=1)
+        print(f"Radii values = Max: {dists.max()}, Mean: {dists.mean()}, Min: {dists.min()}") if debug else None
+        radii_mm[i] = round(dists.max(), 3) # use the max radius to get all voxels in the component, rounded to 3 decimals
+
+    return radii_mm
 
 def sum_voxels_in_sphere(array, center, radius):
     """
@@ -70,35 +193,58 @@ def sum_voxels_in_sphere(array, center, radius):
     # Sum voxel values where mask is True
     return array[mask].sum()
 
-def display_circle(pix, radius):
+def display_circles_3D(pix, center, radius):
+    """
+    Display orthogonal views (axial, sagittal, coronal) of a 3D volume and overlay
+    a circle of a given radius centered at `center`.
+
+    Inputs:
+        pix    : 3D NumPy array shaped (Z, Y, X). Index order is (z, y, x).
+        center : iterable (z, y, x) center coordinates (floats or ints) in voxel units.
+        radius : float, radius of the circle in voxel units (assumes isotropic voxels).
+
+    Returns:
+        None
+    """
+
+    # Get center values
+    z = center[0]
+    y = center[1]
+    x = center[2]
+
+    # Convert center values to integer indices for slicing
+    zi = int(round(center[0]))
+    yi = int(round(center[1]))
+    xi = int(round(center[2]))
+    
     # Extract slices for 3 views
-    axial_slice = pix[centroid_z,:,:]
-    sagittal_slice = pix[:,:,centroid_x]
-    coronal_slice = pix[:, centroid_y, :]
+    axial_slice = pix[zi, :, :]
+    sagittal_slice = pix[: , :, xi]
+    coronal_slice = pix[:, yi, :]
 
     # Create figure with 3 subplots
     fig, axes = plt.subplots(1, 3, figsize=(15,5))
 
     # Axial view
     im0 = axes[0].imshow(axial_slice, cmap='gray', origin='upper')
-    axes[0].set_title(f"Axial (Z={centroid_z})")
-    circle_axial = Circle((centroid_x, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[0].set_title(f"Axial (Z={zi})")
+    circle_axial = Circle((x, y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
     axes[0].add_patch(circle_axial)
-    fig.colorbar(im0, ax=axes[0], label="Counts")
+    fig.colorbar(im0, ax=axes[0])
 
     # Sagittal view
     im1 = axes[1].imshow(sagittal_slice, cmap='gray', origin='upper')
-    axes[1].set_title(f"Sagittal (X={centroid_x})")
-    circle_sagittal = Circle((centroid_z, centroid_y), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[1].set_title(f"Sagittal (X={xi})")
+    circle_sagittal = Circle((y, z), radius, color='red', alpha=0.5, fill=False, linewidth=2)
     axes[1].add_patch(circle_sagittal)
-    fig.colorbar(im1, ax=axes[1], label="Counts")
+    fig.colorbar(im1, ax=axes[1])
 
     # Coronal view
     im2 = axes[2].imshow(coronal_slice, cmap='gray', origin='upper')
-    axes[2].set_title(f"Coronal (Y={centroid_y})")
-    circle_coronal = Circle((centroid_x, centroid_z), radius, color='red', alpha=0.5, fill=False, linewidth=2)
+    axes[2].set_title(f"Coronal (Y={yi})")
+    circle_coronal = Circle((x, z), radius, color='red', alpha=0.5, fill=False, linewidth=2)
     axes[2].add_patch(circle_coronal)
-    fig.colorbar(im2, ax=axes[2], label="Counts")
+    fig.colorbar(im2, ax=axes[2])
 
     # Display the centroid with a circle of calculated radius
     plt.tight_layout()
@@ -152,39 +298,30 @@ except:
     print("No number of projections found in header")
     num_frames = int(input("Enter the number of projections: "))
 
-if calibration_mode:
-    # Compute centroid
-    centroid = subprocess.check_output(["centroid", recon])
-    centroid = centroid.decode('ascii').strip().split("\t")
-    centroid_x = round(float(centroid[-3]))
-    centroid_y = round(float(centroid[-2]))
-    centroid_z = round(float(centroid[-1]))
-    print(f"Centroid found at {centroid_x}, {centroid_y}, {centroid_z}")
-    
+if calibration_mode:  
     # Calculate radius of sphere (assumes isotopric voxels)
-    mean = pix.mean()
-    std = pix.std()
-    threshold = mean + 2 * std
-    #threshold = np.percentile(pix, 98) # causes slow processing
-    coords = np.argwhere(pix > threshold)  # pick voxels above threshold
-    weights = pix[tuple(coords.T)]         # intensity as weight
-    center, radius = fit_sphere(coords, weights)
-    print(f"Calculated radius = {radius}")
+    binary_pix = threshold_2D_and_3D(pix, False)
+    centers = find_sphere_centers(pix, binary_pix, 1)
+    spacing = get_spacing(recon)
+    radii_mm = compute_radii_from_binary_3D(binary_pix, centers, spacing, False)
+    radii_pix = [r / abs(spacing[2]) for r in radii_mm]
+
+    print(f"Calculated radius = {radii_mm[0]} mm / {radii_pix[0]} px")
 
     # Ask for confirmation on radius
     accepted = False
     while accepted == False:
-        display_circle(pix, radius)
+        display_circles_3D(pix, centers[0], radii_pix[0])
         response = input("Is the VOI acceptable (Y/N)? ")
         if response == 'Y' or response == 'y':
             accepted = True
         elif response == 'N' or response == 'n':
-            radius = float(input("Enter in the new radius: "))
+            radii_pix[0] = float(input("Enter in the new radius in px: "))
         else:
             print("Unknown response, please answer Y or N.")
 
     # Sum the in the sphere
-    tot_counts = sum_voxels_in_sphere(pix, (centroid_x, centroid_y, centroid_z), radius)
+    tot_counts = sum_voxels_in_sphere(pix, centers[0], radii_pix[0])
     print(f"{tot_counts} counts in image")
         
     activity_MBq = float(input("Enter the activity in MBq: "))
