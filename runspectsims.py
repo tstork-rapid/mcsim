@@ -216,7 +216,7 @@ def runspectsims(configfile, startseed, endseed, maxproc):
                 print(f"running {prefix} {rn} {obj} {seed} nn={NN}")
                 opts = (
                     f"/FA:1/FA:8/FD:{densmap}/FS:{obj}/PX:{pixsize}/RR:{seed}"
-                    f"/SD:{seed}/FI:{isd_file}/01:{parms['photon_energy']}"
+                    f"/SD:{seed}/FI:{isd_file}/IN:x22,3x/01:{parms['photon_energy']}"
                     f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
                     f"/20:{parms['e_high']}/21:{parms['e_low']}/NN:{NN}/TR:5"
                     f"/31:{pixsize}/29:{parms['nang']}/84:41/CA:{parms['score41_val']}/34:{zdim}"
@@ -226,10 +226,10 @@ def runspectsims(configfile, startseed, endseed, maxproc):
                 opts += "/FA:15" if seed != startseed else "/TR:15"
                 opts += f"/84:41/fw:{ewin_file}"
                 base = f"{prefix}_{rn}_{obj}_{seed}"
-                cmd = f"{simind} voxphan{opts}/CC:{parms['collimator']} {base} >& {base}.log"
-                if not exists(f"{base}.log") and not exists(f"{base}.res"):
+                cmd = f"{simind} voxphan{opts}/CC:{parms['collimator']} {base} >& {base.lower()}.log" # res files use lower case base, make log also
+                if not exists(f"{base.lower()}.log") and not exists(f"{base.lower()}.res"):
                     print(cmd)
-                    with open(f"{base}.log", "w") as fp:
+                    with open(f"{base.lower()}.log", "w") as fp:
                         fp.write("\n")
                     runcmd(cmd, maxruns=maxproc)
                     sleep(1)

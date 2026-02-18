@@ -19,7 +19,7 @@ for res in glob("*.res"):
     sd = parts[-1]
     start = "_".join(parts[0:-1])
     num_summed = 0
-    for im in glob(f"{start}_{sd}.*im"):
+    for im in glob(f"{start}_{sd}.*im"): # .w??.im only finds window outputs, .*im to find all files
         b, ext = splitext(im)
         b = b.lstrip(f"{start}_{sd}")
         fstart = f"{start}{b}"
@@ -55,9 +55,7 @@ for f, ims in files.items():
             npi.ArrayToIm(sum.astype(np.float32) / num_summed, outf)
 
             # Copy the header from a simulation output to the averaged file
-            cmd = f"imgcpinfo {ims[0]} {outf}" # overwrites previous output
-            print("Running: " + cmd)
-            runcmd(cmd,1,2)
+            call(["imgcpinfo", ims[0], outf])
 
         except npi.error as e:
             print("error generating {outf}: {e}")

@@ -5,7 +5,6 @@ from sys import exit, argv
 from glob import glob
 import numpy as np
 import NumpyIm as npi
-from runcmd import runcmd, waitall
 import subprocess
 
 def reduce_proj_to_128(file):
@@ -21,15 +20,14 @@ def reduce_proj_to_128(file):
     # Determine scale factor to get images to 128x128
     pix = npi.ArrayFromIm(file)
     shape = pix.shape
-    x_factor = shape[2]/128
-    y_factor = shape[1]/128
 
-    # Collapse the images to 128x128 if needed
-    if x_factor > 1 or y_factor > 1:
-        outf = f"collapsed.{file}"
-        cmd = f"collapse {x_factor} {y_factor} {file} {outf}"
-        print("Running: " + cmd)
-        runcmd(cmd,1,2)
+    if shape[1] != shape[2]:
+        print("Non-square input, defaulting to collapse factor of 2")
+        x_factor = 2
+        y_factor = 2
+
+        outf= f"collapsed.{file}"
+        subprocess.call(["collapse", str(x_factor), str(y_factor), file, outf])
 
         # Copy header from pre-collapsed images to collapsed images
         copy_header(file, outf)
@@ -41,14 +39,30 @@ def reduce_proj_to_128(file):
         col_size = float(pix_size[1]) * y_factor
 
         # Update pixel spacing rows and columns
-        cmd = f"imsetinfo -i \"Pixel Spacing Rows\" \"{row_size}\" -i \"Pixel Spacing Cols\" \"{col_size}\" {outf}"
-        print("Running: " + cmd)
-        runcmd(cmd,1,2)
+        subprocess.call(["imsetinfo", "-i", "Pixel Spacing Rows", str(row_size), "-i", "Pixel Spacing Cols", str(col_size), outf]) # Slices Spacing is thickness
+    else:
+        x_factor = shape[2]/128
+        y_factor = shape[1]/128
+
+        # Collapse the images to 128x128 if needed
+        if x_factor > 1 or y_factor > 1:
+            outf = f"collapsed.{file}"
+            subprocess.call(["collapse", str(x_factor), str(y_factor), file, outf])
+
+            # Copy header from pre-collapsed images to collapsed images
+            copy_header(file, outf)
+            
+            # Get new pixel spacing rows and columns
+            pix_size = subprocess.check_output(["imghdr", "-i", "Pixel Size", file])
+            pix_size = pix_size.decode('ascii').strip().split()
+            row_size = float(pix_size[0]) * x_factor
+            col_size = float(pix_size[1]) * y_factor
+
+            # Update pixel spacing rows and columns
+            subprocess.call(["imsetinfo", "-i", "Pixel Spacing Rows", str(row_size), "-i", "Pixel Spacing Cols", str(col_size), outf])
 
 def copy_header(header_file, image_file):
-    cmd = f"imgcpinfo {header_file} {image_file}" # overwrites previous output
-    print("Running: " + cmd)
-    runcmd(cmd,1,2)
+    subprocess.call(["imgcpinfo", header_file, image_file])
 
 
 # Ensure user inputs are present
@@ -97,6 +111,7 @@ if exists("prj.nf.w01.im") or exists("prj.n.w01.im"):
     print("Output files already exist. Exiting to prevent overwritting")
     exit(1)
 
+avg_name = ".avg"
 # Detect if any .avg files exist
 if len(glob(pattern_txt)) < 1:
     # Change patterns to not search for averaged images but for raw seed outputs
@@ -119,15 +134,15 @@ if len(glob(pattern_txt)) < 1:
     
     if min_seed != max_seed:
         print("More than one seed found but no averaged images found. Running avg_done_sims.py")
-        cmd = "./avg_done_sims.py"
-        runcmd(cmd,1)
-        waitall()
+        subprocess.call(["avg_done_sims.py"])
 
         # Reset search terms
         pattern_re = re.compile(r"sim_(\w{1,2}\d{1,3})_(.*).w(\d{2})\.avg\.im")
         pattern_txt = "sim*w??.avg.im"
     else:
         print("No averaged images found. Continuing with single seed")
+        pattern_re = re.compile(r"sim_(\w{1,2}\d{1,3})_(.*).w(\d{2})\.im")
+        avg_name = ""
 
 # Initialize a list to store the extracted window numbers and vois
 radionuclides = []
@@ -150,6 +165,8 @@ for filename in glob(pattern_txt):
 # Remove duplicates from string lists
 radionuclides = list(set(radionuclides))
 vois = list(set(vois))
+
+print(f"Found the following radionuclides:\n", radionuclides)
 
 # Find max and min window numbers
 max_window = max(window_numbers)
@@ -174,7 +191,7 @@ for i in window_range:
         sum_outf = f"sim_all_{voi}.w{num_txt}.im"
 
         for radionuclide in radionuclides:
-            file_name = f"sim_{radionuclide}_{voi}.w{num_txt}.avg.im"
+            file_name = f"sim_{radionuclide}_{voi}.w{num_txt}{avg_name}.im"
             
             # Combine all radionuclides in a given VOI in a given window
             try:
@@ -183,11 +200,15 @@ for i in window_range:
                 print(f"error reading {file_name}")
                 print("   skipping")
                 continue
+            
+            # Get the branching ratio of the radionuclide
+            branch_ratio = float(obj_dict[radionuclide])
+            print(f"Using {branch_ratio} branching ratio for {radionuclide}")
 
             if num_summed_inner == 0:
-                sum = pix.astype(np.float64)
+                sum = (pix.astype(np.float64) * branch_ratio)
             else:
-                sum += pix.astype(np.float64)
+                sum += (pix.astype(np.float64) * branch_ratio)
             num_summed_inner += 1
         
         # Save combined radionuclide images
@@ -222,19 +243,14 @@ for i in window_range:
     copy_header(sum_outf, combined_scaled_outf)
 
     # Write the frame duration to the header
-    cmd = f"imsetinfo -i \"Actual Frame Duration\" \"{frame_duration_s*1000}\" {combined_scaled_outf}"
-    print("Running: " + cmd)
-    runcmd(cmd,1,2)
+    subprocess.call(["imsetinfo", "-i", "Actual Frame Duration", str(frame_duration_s*1000), combined_scaled_outf])
 
     # Generate the noisey projections
     if exists(noise_outf):
         # Remove noisey projection if it exists
-        cmd = f"rm {noise_outf}"
-        print("Running: " + cmd)
-        runcmd(cmd,1,2)
-    cmd = f"addnoise -i {combined_scaled_outf} {noise_outf}"
-    print("Running: " + cmd)
-    runcmd(cmd,1,2)
+        subprocess.call(["rm", noise_outf])
+
+    subprocess.call(["addnoise", "-i", combined_scaled_outf, noise_outf])
 
     # Downsample the noise free and noisey projections
     reduce_proj_to_128(combined_scaled_outf)
