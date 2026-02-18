@@ -6,5 +6,15 @@ nemab3 = 1.5053
 nemab4 = 0.6946
 nemab5 = 0.3106
 nemab6 = 0.1414
+nemabody = 0
+nemacylinder = 0
 
 frame duration = 30
+
+# Branching Ratios
+ac225 = 1
+fr221 = 1
+at217 = 1
+bi213 = 1
+po213 = 0.9791
+tl209 = 0.0209
