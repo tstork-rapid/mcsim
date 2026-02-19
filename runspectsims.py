@@ -204,6 +204,13 @@ def runspectsims(configfile, startseed, endseed, maxproc):
     # 81: matrix size density map J
     # 82: matrix size source map J
 
+    if parms["collimator"].startswith("SY"):
+        rot = "rc:30"
+    elif parms["collimator"].startswith("GI"):
+        rot = "rc:15"
+    else:
+        rot = "rc:0"
+
     pixsize = parms["pixsize"]
     zdim, ydim, xdim = objshape
     z_halflen = pixsize * zdim / 2.0
@@ -220,7 +227,7 @@ def runspectsims(configfile, startseed, endseed, maxproc):
                     f"/02:{z_halflen}/05:{z_halflen}/28:{pixsize}/31:{pixsize}"
                     f"/20:{parms['e_high']}/21:{parms['e_low']}/NN:{NN}/TR:5"
                     f"/31:{pixsize}/29:{parms['nang']}/84:41/CA:{parms['score41_val']}/34:{zdim}"
-                    f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}/83:-10"
+                    f"/76:{xdim}/77:{zdim}/78:{xdim}/79:{xdim}/81:{ydim}/82:{ydim}/83:-10/{rot}"
                 )
                 # this saves an aligned attenuation map only for the start seed
                 opts += "/FA:15" if seed != startseed else "/TR:15"
